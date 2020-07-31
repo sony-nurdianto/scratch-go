@@ -18,6 +18,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/cors v1.7.0
 	github.com/sony-nurdianto/go-pedia v0.0.0-20200727075552-1143eb14e184
+	github.com/vektah/gqlparser v1.3.1
 	github.com/vektah/gqlparser/v2 v2.0.1
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de

@@ -30,8 +30,22 @@ func (ub *BucketRepo) CreateBucket(userBucket *model.UserBucket) (*model.UserBuc
 	return userBucket, err
 }
 
-//DeleteBucket
+//DeleteBucket to Delete Bucket
 func (ub *BucketRepo) DeleteBucket(userbucket *model.UserBucket) error {
 	_, err := ub.DB.Model(userbucket).Where("id = ?", userbucket.ID).Delete()
 	return err
+}
+
+//GetUserBucket to get user Bucket
+func (ub *BucketRepo) GetUserBucket(user *model.Users) ([]*model.UserBucket, error) {
+	var users []*model.UserBucket
+	err := ub.DB.Model(&user).Where("user = ?", user.ID).Select()
+	return users, err
+}
+
+//GetProductBucket to get Product Bucket
+func (ub *BucketRepo) GetProductBucket(product *model.Product) ([]*model.UserBucket, error) {
+	var products []*model.UserBucket
+	err := ub.DB.Model(&products).Where("product = ?", product.ID).Select()
+	return products, err
 }
