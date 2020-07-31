@@ -3,7 +3,7 @@
 # https://gqlgen.com/getting-started/
 
 scalar Time
-scalar Upload
+
 
 type AuthToken{
   accessToken: String!
@@ -32,15 +32,14 @@ type Product{
   name: String!
   description: String!
   price: Int!
-  image: Upload!
-  user_id: [Users!]!
+  user_id: Users!
 }
 
 
 
 type UserBucket{
     id: ID!
-    products: [Product!]!
+    products: Product!
     user_name: Users!
 }
 
@@ -52,11 +51,11 @@ type NewUserBucket{
 
 
 input FilterProduct{
-  name: String!
+  name: String
 }
 
 input FilterUser{
-  user_name: String!
+  user_name: String
 }
 
 input NewProduct{
@@ -69,7 +68,7 @@ input UpdateProduct{
   name: String
   description: String
   price: Int
-  image: Upload
+  
 }
 
 input RegisterUser{
@@ -91,12 +90,13 @@ input LoginUser{
 type Query{
   products(filter: FilterProduct, limit: Int = 10 , offset: Int = 0):[Product!]!
   userBucket: UserBucket!
-  users(filter: FilterUser, limit: Int = 10 , offset: Int = 0):[Users!]! 
+  users(filter: FilterUser, limit: Int = 10 , offset: Int = 0):[Users!]!
+  user(id: ID!) : Users!
 
 }
 
 type Mutation{
-  singleUpload(file: Upload!): Product!
+  
   registerUser(input:RegisterUser!): AuthResponse!
   loginUser(input:LoginUser!):AuthResponse!
   createProduct(input: NewProduct!) : Product!

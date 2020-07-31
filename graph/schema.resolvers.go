@@ -12,10 +12,6 @@ import (
 	"github.com/sony-nurdianto/scratch-go/graph/model"
 )
 
-func (r *mutationResolver) SingleUpload(ctx context.Context, file graphql.Upload) (*model.Product, error) {
-	panic(fmt.Errorf("not implemented"))
-}
-
 func (r *mutationResolver) RegisterUser(ctx context.Context, input model.RegisterUser) (*model.AuthResponse, error) {
 	panic(fmt.Errorf("not implemented"))
 }
@@ -44,7 +40,7 @@ func (r *mutationResolver) DeleteBucket(ctx context.Context, id string) (bool, e
 	panic(fmt.Errorf("not implemented"))
 }
 
-func (r *productResolver) UserID(ctx context.Context, obj *model.Product) ([]*model.Users, error) {
+func (r *productResolver) UserID(ctx context.Context, obj *model.Product) (*model.Users, error) {
 	panic(fmt.Errorf("not implemented"))
 }
 
@@ -57,6 +53,14 @@ func (r *queryResolver) UserBucket(ctx context.Context) (*model.UserBucket, erro
 }
 
 func (r *queryResolver) Users(ctx context.Context, filter *model.FilterUser, limit *int, offset *int) ([]*model.Users, error) {
+	panic(fmt.Errorf("not implemented"))
+}
+
+func (r *queryResolver) User(ctx context.Context, id string) (*model.Users, error) {
+	panic(fmt.Errorf("not implemented"))
+}
+
+func (r *userBucketResolver) Products(ctx context.Context, obj *model.UserBucket) (*model.Product, error) {
 	panic(fmt.Errorf("not implemented"))
 }
 
@@ -87,7 +91,7 @@ type userBucketResolver struct{ *Resolver }
 //  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
 //    it when you're done.
 //  - You have helper methods in this file. Move them out to keep these resolver files clean.
-func (r *userBucketResolver) Products(ctx context.Context, obj *model.UserBucket) ([]*model.Product, error) {
+func (r *mutationResolver) SingleUpload(ctx context.Context, file graphql.Upload) (*model.Product, error) {
 	panic(fmt.Errorf("not implemented"))
 }
 func (r *productResolver) Name(ctx context.Context, obj *model.Users) (string, error) {

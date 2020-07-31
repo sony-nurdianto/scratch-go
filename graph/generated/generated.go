@@ -63,7 +63,6 @@ type ComplexityRoot struct {
 		DeleteProduct func(childComplexity int, id string) int
 		LoginUser     func(childComplexity int, input model.LoginUser) int
 		RegisterUser  func(childComplexity int, input model.RegisterUser) int
-		SingleUpload  func(childComplexity int, file graphql.Upload) int
 		UpdateProduct func(childComplexity int, id string, input model.UpdateProduct) int
 	}
 
@@ -75,7 +74,6 @@ type ComplexityRoot struct {
 	Product struct {
 		Description func(childComplexity int) int
 		ID          func(childComplexity int) int
-		Image       func(childComplexity int) int
 		Name        func(childComplexity int) int
 		Price       func(childComplexity int) int
 		UserID      func(childComplexity int) int
@@ -83,6 +81,7 @@ type ComplexityRoot struct {
 
 	Query struct {
 		Products   func(childComplexity int, filter *model.FilterProduct, limit *int, offset *int) int
+		User       func(childComplexity int, id string) int
 		UserBucket func(childComplexity int) int
 		Users      func(childComplexity int, filter *model.FilterUser, limit *int, offset *int) int
 	}
@@ -105,7 +104,6 @@ type ComplexityRoot struct {
 }
 
 type MutationResolver interface {
-	SingleUpload(ctx context.Context, file graphql.Upload) (*model.Product, error)
 	RegisterUser(ctx context.Context, input model.RegisterUser) (*model.AuthResponse, error)
 	LoginUser(ctx context.Context, input model.LoginUser) (*model.AuthResponse, error)
 	CreateProduct(ctx context.Context, input model.NewProduct) (*model.Product, error)
@@ -115,14 +113,16 @@ type MutationResolver interface {
 	DeleteBucket(ctx context.Context, id string) (bool, error)
 }
 type ProductResolver interface {
-	UserID(ctx context.Context, obj *model.Product) ([]*model.Users, error)
+	UserID(ctx context.Context, obj *model.Product) (*model.Users, error)
 }
 type QueryResolver interface {
 	Products(ctx context.Context, filter *model.FilterProduct, limit *int, offset *int) ([]*model.Product, error)
 	UserBucket(ctx context.Context) (*model.UserBucket, error)
 	Users(ctx context.Context, filter *model.FilterUser, limit *int, offset *int) ([]*model.Users, error)
+	User(ctx context.Context, id string) (*model.Users, error)
 }
 type UserBucketResolver interface {
+	Products(ctx context.Context, obj *model.UserBucket) (*model.Product, error)
 	UserName(ctx context.Context, obj *model.UserBucket) (*model.Users, error)
 }
 
@@ -241,18 +241,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Mutation.RegisterUser(childComplexity, args["input"].(model.RegisterUser)), true
 
-	case "Mutation.singleUpload":
-		if e.complexity.Mutation.SingleUpload == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_singleUpload_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.SingleUpload(childComplexity, args["file"].(graphql.Upload)), true
-
 	case "Mutation.updateProduct":
 		if e.complexity.Mutation.UpdateProduct == nil {
 			break
@@ -293,13 +281,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Product.ID(childComplexity), true
 
-	case "Product.image":
-		if e.complexity.Product.Image == nil {
-			break
-		}
-
-		return e.complexity.Product.Image(childComplexity), true
-
 	case "Product.name":
 		if e.complexity.Product.Name == nil {
 			break
@@ -332,6 +313,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Query.Products(childComplexity, args["filter"].(*model.FilterProduct), args["limit"].(*int), args["offset"].(*int)), true
+
+	case "Query.user":
+		if e.complexity.Query.User == nil {
+			break
+		}
+
+		args, err := ec.field_Query_user_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.User(childComplexity, args["id"].(string)), true
 
 	case "Query.userBucket":
 		if e.complexity.Query.UserBucket == nil {
@@ -491,7 +484,7 @@ var sources = []*ast.Source{
 # https://gqlgen.com/getting-started/
 
 scalar Time
-scalar Upload
+
 
 type AuthToken{
   accessToken: String!
@@ -520,15 +513,14 @@ type Product{
   name: String!
   description: String!
   price: Int!
-  image: Upload!
-  user_id: [Users!]!
+  user_id: Users!
 }
 
 
 
 type UserBucket{
     id: ID!
-    products: [Product!]!
+    products: Product!
     user_name: Users!
 }
 
@@ -540,11 +532,11 @@ type NewUserBucket{
 
 
 input FilterProduct{
-  name: String!
+  name: String
 }
 
 input FilterUser{
-  user_name: String!
+  user_name: String
 }
 
 input NewProduct{
@@ -557,7 +549,7 @@ input UpdateProduct{
   name: String
   description: String
   price: Int
-  image: Upload
+  
 }
 
 input RegisterUser{
@@ -579,12 +571,13 @@ input LoginUser{
 type Query{
   products(filter: FilterProduct, limit: Int = 10 , offset: Int = 0):[Product!]!
   userBucket: UserBucket!
-  users(filter: FilterUser, limit: Int = 10 , offset: Int = 0):[Users!]! 
+  users(filter: FilterUser, limit: Int = 10 , offset: Int = 0):[Users!]!
+  user(id: ID!) : Users!
 
 }
 
 type Mutation{
-  singleUpload(file: Upload!): Product!
+  
   registerUser(input:RegisterUser!): AuthResponse!
   loginUser(input:LoginUser!):AuthResponse!
   createProduct(input: NewProduct!) : Product!
@@ -702,20 +695,6 @@ func (ec *executionContext) field_Mutation_registerUser_args(ctx context.Context
 	return args, nil
 }
 
-func (ec *executionContext) field_Mutation_singleUpload_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
-	var err error
-	args := map[string]interface{}{}
-	var arg0 graphql.Upload
-	if tmp, ok := rawArgs["file"]; ok {
-		arg0, err = ec.unmarshalNUpload2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚐUpload(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["file"] = arg0
-	return args, nil
-}
-
 func (ec *executionContext) field_Mutation_updateProduct_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
@@ -779,6 +758,20 @@ func (ec *executionContext) field_Query_products_args(ctx context.Context, rawAr
 		}
 	}
 	args["offset"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_user_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["id"]; ok {
+		arg0, err = ec.unmarshalNID2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["id"] = arg0
 	return args, nil
 }
 
@@ -982,47 +975,6 @@ func (ec *executionContext) _AuthToken_expiredAt(ctx context.Context, field grap
 	res := resTmp.(time.Time)
 	fc.Result = res
 	return ec.marshalNTime2timeᚐTime(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) _Mutation_singleUpload(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	fc := &graphql.FieldContext{
-		Object:   "Mutation",
-		Field:    field,
-		Args:     nil,
-		IsMethod: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Mutation_singleUpload_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().SingleUpload(rctx, args["file"].(graphql.Upload))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*model.Product)
-	fc.Result = res
-	return ec.marshalNProduct2ᚖgithubᚗcomᚋsonyᚑnurdiantoᚋscratchᚑgoᚋgraphᚋmodelᚐProduct(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_registerUser(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -1516,40 +1468,6 @@ func (ec *executionContext) _Product_price(ctx context.Context, field graphql.Co
 	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _Product_image(ctx context.Context, field graphql.CollectedField, obj *model.Product) (ret graphql.Marshaler) {
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	fc := &graphql.FieldContext{
-		Object:   "Product",
-		Field:    field,
-		Args:     nil,
-		IsMethod: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Image, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(graphql.Upload)
-	fc.Result = res
-	return ec.marshalNUpload2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚐUpload(ctx, field.Selections, res)
-}
-
 func (ec *executionContext) _Product_user_id(ctx context.Context, field graphql.CollectedField, obj *model.Product) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -1579,9 +1497,9 @@ func (ec *executionContext) _Product_user_id(ctx context.Context, field graphql.
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]*model.Users)
+	res := resTmp.(*model.Users)
 	fc.Result = res
-	return ec.marshalNUsers2ᚕᚖgithubᚗcomᚋsonyᚑnurdiantoᚋscratchᚑgoᚋgraphᚋmodelᚐUsersᚄ(ctx, field.Selections, res)
+	return ec.marshalNUsers2ᚖgithubᚗcomᚋsonyᚑnurdiantoᚋscratchᚑgoᚋgraphᚋmodelᚐUsers(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_products(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -1700,6 +1618,47 @@ func (ec *executionContext) _Query_users(ctx context.Context, field graphql.Coll
 	return ec.marshalNUsers2ᚕᚖgithubᚗcomᚋsonyᚑnurdiantoᚋscratchᚑgoᚋgraphᚋmodelᚐUsersᚄ(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _Query_user(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Query",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Query_user_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().User(rctx, args["id"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.Users)
+	fc.Result = res
+	return ec.marshalNUsers2ᚖgithubᚗcomᚋsonyᚑnurdiantoᚋscratchᚑgoᚋgraphᚋmodelᚐUsers(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _Query___type(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -1814,13 +1773,13 @@ func (ec *executionContext) _UserBucket_products(ctx context.Context, field grap
 		Object:   "UserBucket",
 		Field:    field,
 		Args:     nil,
-		IsMethod: false,
+		IsMethod: true,
 	}
 
 	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Products, nil
+		return ec.resolvers.UserBucket().Products(rctx, obj)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1832,9 +1791,9 @@ func (ec *executionContext) _UserBucket_products(ctx context.Context, field grap
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]*model.Product)
+	res := resTmp.(*model.Product)
 	fc.Result = res
-	return ec.marshalNProduct2ᚕᚖgithubᚗcomᚋsonyᚑnurdiantoᚋscratchᚑgoᚋgraphᚋmodelᚐProductᚄ(ctx, field.Selections, res)
+	return ec.marshalNProduct2ᚖgithubᚗcomᚋsonyᚑnurdiantoᚋscratchᚑgoᚋgraphᚋmodelᚐProduct(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _UserBucket_user_name(ctx context.Context, field graphql.CollectedField, obj *model.UserBucket) (ret graphql.Marshaler) {
@@ -3172,7 +3131,7 @@ func (ec *executionContext) unmarshalInputFilterProduct(ctx context.Context, obj
 		switch k {
 		case "name":
 			var err error
-			it.Name, err = ec.unmarshalNString2string(ctx, v)
+			it.Name, err = ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -3190,7 +3149,7 @@ func (ec *executionContext) unmarshalInputFilterUser(ctx context.Context, obj in
 		switch k {
 		case "user_name":
 			var err error
-			it.UserName, err = ec.unmarshalNString2string(ctx, v)
+			it.UserName, err = ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -3326,12 +3285,6 @@ func (ec *executionContext) unmarshalInputUpdateProduct(ctx context.Context, obj
 			if err != nil {
 				return it, err
 			}
-		case "image":
-			var err error
-			it.Image, err = ec.unmarshalOUpload2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚐUpload(ctx, v)
-			if err != nil {
-				return it, err
-			}
 		}
 	}
 
@@ -3425,11 +3378,6 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Mutation")
-		case "singleUpload":
-			out.Values[i] = ec._Mutation_singleUpload(ctx, field)
-			if out.Values[i] == graphql.Null {
-				invalids++
-			}
 		case "registerUser":
 			out.Values[i] = ec._Mutation_registerUser(ctx, field)
 			if out.Values[i] == graphql.Null {
@@ -3539,11 +3487,6 @@ func (ec *executionContext) _Product(ctx context.Context, sel ast.SelectionSet, 
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&invalids, 1)
 			}
-		case "image":
-			out.Values[i] = ec._Product_image(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&invalids, 1)
-			}
 		case "user_id":
 			field := field
 			out.Concurrently(i, func() (res graphql.Marshaler) {
@@ -3626,6 +3569,20 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				}
 				return res
 			})
+		case "user":
+			field := field
+			out.Concurrently(i, func() (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_user(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&invalids, 1)
+				}
+				return res
+			})
 		case "__type":
 			out.Values[i] = ec._Query___type(ctx, field)
 		case "__schema":
@@ -3658,10 +3615,19 @@ func (ec *executionContext) _UserBucket(ctx context.Context, sel ast.SelectionSe
 				atomic.AddUint32(&invalids, 1)
 			}
 		case "products":
-			out.Values[i] = ec._UserBucket_products(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&invalids, 1)
-			}
+			field := field
+			out.Concurrently(i, func() (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._UserBucket_products(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&invalids, 1)
+				}
+				return res
+			})
 		case "user_name":
 			field := field
 			out.Concurrently(i, func() (res graphql.Marshaler) {
@@ -4154,20 +4120,6 @@ func (ec *executionContext) unmarshalNUpdateProduct2githubᚗcomᚋsonyᚑnurdia
 	return ec.unmarshalInputUpdateProduct(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNUpload2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚐUpload(ctx context.Context, v interface{}) (graphql.Upload, error) {
-	return graphql.UnmarshalUpload(v)
-}
-
-func (ec *executionContext) marshalNUpload2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚐUpload(ctx context.Context, sel ast.SelectionSet, v graphql.Upload) graphql.Marshaler {
-	res := graphql.MarshalUpload(v)
-	if res == graphql.Null {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
-		}
-	}
-	return res
-}
-
 func (ec *executionContext) marshalNUserBucket2githubᚗcomᚋsonyᚑnurdiantoᚋscratchᚑgoᚋgraphᚋmodelᚐUserBucket(ctx context.Context, sel ast.SelectionSet, v model.UserBucket) graphql.Marshaler {
 	return ec._UserBucket(ctx, sel, &v)
 }
@@ -4564,29 +4516,6 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 		return graphql.Null
 	}
 	return ec.marshalOString2string(ctx, sel, *v)
-}
-
-func (ec *executionContext) unmarshalOUpload2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚐUpload(ctx context.Context, v interface{}) (graphql.Upload, error) {
-	return graphql.UnmarshalUpload(v)
-}
-
-func (ec *executionContext) marshalOUpload2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚐUpload(ctx context.Context, sel ast.SelectionSet, v graphql.Upload) graphql.Marshaler {
-	return graphql.MarshalUpload(v)
-}
-
-func (ec *executionContext) unmarshalOUpload2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚐUpload(ctx context.Context, v interface{}) (*graphql.Upload, error) {
-	if v == nil {
-		return nil, nil
-	}
-	res, err := ec.unmarshalOUpload2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚐUpload(ctx, v)
-	return &res, err
-}
-
-func (ec *executionContext) marshalOUpload2ᚖgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚐUpload(ctx context.Context, sel ast.SelectionSet, v *graphql.Upload) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	return ec.marshalOUpload2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚐUpload(ctx, sel, *v)
 }
 
 func (ec *executionContext) marshalO__EnumValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐEnumValueᚄ(ctx context.Context, sel ast.SelectionSet, v []introspection.EnumValue) graphql.Marshaler {

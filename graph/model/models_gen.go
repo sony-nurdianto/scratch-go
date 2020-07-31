@@ -4,8 +4,6 @@ package model
 
 import (
 	"time"
-
-	"github.com/99designs/gqlgen/graphql"
 )
 
 type AuthResponse struct {
@@ -19,11 +17,11 @@ type AuthToken struct {
 }
 
 type FilterProduct struct {
-	Name string `json:"name"`
+	Name *string `json:"name"`
 }
 
 type FilterUser struct {
-	UserName string `json:"user_name"`
+	UserName *string `json:"user_name"`
 }
 
 type LoginUser struct {
@@ -52,8 +50,7 @@ type RegisterUser struct {
 }
 
 type UpdateProduct struct {
-	Name        *string         `json:"name"`
-	Description *string         `json:"description"`
-	Price       *int            `json:"price"`
-	Image       *graphql.Upload `json:"image"`
+	Name        *string `json:"name"`
+	Description *string `json:"description"`
+	Price       *int    `json:"price"`
 }

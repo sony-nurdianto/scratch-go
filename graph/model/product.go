@@ -9,5 +9,9 @@ type Product struct {
 	Description string         `json:"description"`
 	Price       int            `json:"price"`
 	Image       graphql.Upload `json:"image"`
-	UserID      []*Users       `json:"user_id"`
+	UserID      string         `json:"user_id"`
+}
+
+func (p *Product) IsOwner(user *Users) bool {
+	return p.UserID == user.ID
 }
