@@ -1,0 +1,107 @@
+# GraphQL schema example
+#
+# https://gqlgen.com/getting-started/
+
+scalar Time
+scalar Upload
+
+type AuthToken{
+  accessToken: String!
+  expiredAt: Time!
+
+}
+
+type AuthResponse{
+  authToken: AuthToken!
+  user: Users!
+}
+
+type Users{
+  id: ID!
+  user_name: String!
+  first_name: String!
+  last_name: String!
+  email: String!
+  createdAt: Time!
+  updatedAt: Time!
+
+}
+
+type Product{
+  id: ID!
+  name: String!
+  description: String!
+  price: Int!
+  image: Upload!
+  user_id: [Users!]!
+}
+
+
+
+type UserBucket{
+    id: ID!
+    products: [Product!]!
+    user_name: Users!
+}
+
+type NewUserBucket{
+    products: Product!
+    user_name: Users!
+}
+
+
+
+input FilterProduct{
+  name: String!
+}
+
+input FilterUser{
+  user_name: String!
+}
+
+input NewProduct{
+  name: String!
+  description: String!
+  price: Int!
+
+}
+input UpdateProduct{
+  name: String
+  description: String
+  price: Int
+  image: Upload
+}
+
+input RegisterUser{
+  user_name: String!
+  email: String!
+  password: String!
+  confirmPassword: String!
+  first_name: String!
+  last_name: String!
+}
+
+input LoginUser{
+    email: String!
+    password: String!
+}
+
+ 
+
+type Query{
+  products(filter: FilterProduct, limit: Int = 10 , offset: Int = 0):[Product!]!
+  userBucket: UserBucket!
+  users(filter: FilterUser, limit: Int = 10 , offset: Int = 0):[Users!]! 
+
+}
+
+type Mutation{
+  singleUpload(file: Upload!): Product!
+  registerUser(input:RegisterUser!): AuthResponse!
+  loginUser(input:LoginUser!):AuthResponse!
+  createProduct(input: NewProduct!) : Product!
+  createBucket(product:ID! , user_name: ID!) : UserBucket!
+  updateProduct(id:ID!,input: UpdateProduct!) : Product!
+  deleteProduct(id:ID!) : Boolean!
+  deleteBucket(id:ID!) : Boolean!
+}
